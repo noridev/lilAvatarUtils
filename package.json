@@ -1,10 +1,11 @@
 {
-  "name": "jp.lilxyzw.avatar-utils",
-  "version": "1.2.0",
+  "name": "moe.noridev.avatar-utils",
+  "version": "1.0.0",
+  "baseVersion": "1.2.0",
   "displayName": "lilAvatarUtils",
   "description": "Utilities for avatar modification.",
   "unity": "2019.4",
   "license": "MIT",
-  "url" : "https://github.com/lilxyzw/lilAvatarUtils/releases/download/1.2.0/jp.lilxyzw.avatar-utils-1.2.0.zip?",
-  "repo" : "https://lilxyzw.github.io/vpm-repos/vpm.json"
+  "url" : "https://github.com/noridev/lilAvatarUtils/releases/download/1.2.0/moe.noridev.avatar-utils-1.2.0.zip?",
+  "repo" : "https://vpm.noridev.moe/index.json"
 }

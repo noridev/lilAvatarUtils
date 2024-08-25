@@ -7,14 +7,14 @@ Please install by **one** of the following methods.
 
 ### VPM
 
-Add my [repos](https://github.com/lilxyzw/vpm-repos) and add `jp.lilxyzw.avatar-utils` to your project.
+Add my [repos](https://vpm.noridev.moe) and add `moe.noridev.avatar-utils` to your project.
 
 ### UPM
 
 Import the following Git URL in UPM.
 
 ```
-https://github.com/lilxyzw/lilAvatarUtils.git
+https://github.com/noridev/lilAvatarUtils.git
 ```
 
 ## Window

@@ -9,6 +9,8 @@ Please install by **one** of the following methods.
 
 Add my [repos](https://vpm.noridev.moe) and add `moe.noridev.avatar-utils` to your project.
 
+[![Add to VCC](https://img.shields.io/badge/-Add%20to%20VCC-%232baac1?style=for-the-badge)](https://vpm.noridev.moe/)
+
 ### UPM
 
 Import the following Git URL in UPM.

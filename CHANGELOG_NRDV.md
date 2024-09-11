@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changes
 - 원본 lilAvatarUtils와 구분할 수 있도록 패치 네임 추가
 
+---
+
 ## [1.0.0] - 2024-08-25
 기반 lilAvatarUtils 버전: <b>1.2.0</b>
 

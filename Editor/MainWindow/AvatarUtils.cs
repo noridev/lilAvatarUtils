@@ -34,7 +34,6 @@ namespace lilAvatarUtils.MainWindow
     internal class AvatarUtilsWindow : EditorWindow
     {
         internal const string TEXT_WINDOW_NAME = "AvatarUtils";
-        internal static bool isMaterialsGUITabOpen = false;
 
         public EditorMode editorMode = EditorMode.Textures;
         public GameObject gameObject;
@@ -44,6 +43,7 @@ namespace lilAvatarUtils.MainWindow
         public RenderersGUI renderersGUI = new RenderersGUI();
         #if LIL_VRCSDK3_AVATARS
         public PhysBonesGUI physBonesGUI = new PhysBonesGUI();
+        public PhysBoneCollidersGUI physBoneCollidersGUI = new PhysBoneCollidersGUI();
         #endif
         public LightingTestGUI lightingTestGUI = new LightingTestGUI();
 
@@ -73,52 +73,43 @@ namespace lilAvatarUtils.MainWindow
             editorMode = (EditorMode)GUILayout.Toolbar((int)editorMode, sEditorModeList);
             if(editorMode == EditorMode.Textures)
             {
-                isMaterialsGUITabOpen = false;
-
                 texturesGUI.Draw(this);
                 return;
             }
             if(editorMode == EditorMode.Materials)
             {
-                isMaterialsGUITabOpen = true;
-
                 materialsGUI.Draw(this);
                 return;
             }
             if(editorMode == EditorMode.Animations)
             {
-                isMaterialsGUITabOpen = false;
-
                 animationClipGUI.Draw(this);
                 return;
             }
             if(editorMode == EditorMode.Renderers)
             {
-                isMaterialsGUITabOpen = false;
-
                 renderersGUI.Draw(this);
                 return;
             }
             #if LIL_VRCSDK3_AVATARS
             if(editorMode == EditorMode.PhysBones)
             {
-                isMaterialsGUITabOpen = false;
-
                 physBonesGUI.Draw(this);
+                return;
+            }
+            if(editorMode == EditorMode.PBColliders)
+            {
+                physBoneCollidersGUI.Draw(this);
                 return;
             }
             #endif
             if(editorMode == EditorMode.Lighting)
             {
-                isMaterialsGUITabOpen = false;
-
                 lightingTestGUI.Draw(this);
                 return;
             }
             if(editorMode == EditorMode.Utils)
             {
-                isMaterialsGUITabOpen = false;
-
                 if(gameObject == null) return;
                 if(GUILayout.Button("Clean up Materials"))
                 {
@@ -216,7 +207,9 @@ namespace lilAvatarUtils.MainWindow
 
             #if LIL_VRCSDK3_AVATARS
             PhysBonesAnalyzer.Analyze(gameObject, out physBonesGUI.pbs, out physBonesGUI.pbcs);
+            physBoneCollidersGUI.pbcs = physBonesGUI.pbcs;
             physBonesGUI.Set();
+            physBoneCollidersGUI.Set();
             #endif
         }
 
@@ -229,6 +222,7 @@ namespace lilAvatarUtils.MainWindow
             lightingTestGUI.gameObject = gameObject;
             #if LIL_VRCSDK3_AVATARS
             physBonesGUI.gameObject = gameObject;
+            physBoneCollidersGUI.gameObject = gameObject;
             #endif
         }
 
@@ -245,6 +239,7 @@ namespace lilAvatarUtils.MainWindow
             Renderers,
             #if LIL_VRCSDK3_AVATARS
             PhysBones,
+            PBColliders,
             #endif
             Lighting,
             Utils

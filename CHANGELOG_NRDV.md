@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 기반 lilAvatarUtils 버전: <b>1.3.0</b>
 
 ### Changed
-- 기반 lilAvatarUtils 버전 업데이트 (<small>1.2.0</small> -> 1.3.0)
+- 기반 lilAvatarUtils 버전 업데이트 (<small>1.2.0</small> -> **1.3.0**)
 
 ---
 

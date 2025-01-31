@@ -2,7 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace lilAvatarUtils.Utils
+namespace moe.noridev.avatarutils
 {
     internal class PackageJsonReader
     {

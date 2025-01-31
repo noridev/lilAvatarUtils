@@ -1,125 +1,114 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
-namespace lilAvatarUtils.Utils
+namespace moe.noridev.avatarutils
 {
     internal class MaterialCleaner
     {
         internal static HashSet<Material> RemoveUnusedProperties(IEnumerable<Material> materials)
         {
+            var propMap = materials.Select(m => m.shader).Distinct().Where(s => s).ToDictionary(s => s, s => new ShaderPropertyContainer(s));
             var cleanedMaterials = new HashSet<Material>();
             foreach(var material in materials)
             {
-                RemoveUnusedProperties(material, cleanedMaterials);
+                RemoveUnusedProperties(material, cleanedMaterials, propMap);
             }
             return cleanedMaterials;
         }
 
-        private static void RemoveUnusedProperties(Material material, HashSet<Material> cleanedMaterials)
+        // シェーダーで使われていないプロパティを除去
+        private static void RemoveUnusedProperties(Material material, HashSet<Material> cleanedMaterials, Dictionary<Shader, ShaderPropertyContainer> propMap)
         {
-            // https://light11.hatenadiary.com/entry/2018/12/04/224253
-            var so = new SerializedObject(material);
+            using var so = new SerializedObject(material);
             so.Update();
-            var savedProps = so.FindProperty("m_SavedProperties");
-            bool isCleaned = false;
-            isCleaned |= DeleteUnused(savedProps.FindPropertyRelative("m_TexEnvs"), material);
-            isCleaned |= DeleteUnused(savedProps.FindPropertyRelative("m_Floats"), material);
-            isCleaned |= DeleteUnused(savedProps.FindPropertyRelative("m_Colors"), material);
-
-            if(material.shader != null)
+            using var savedProps = so.FindProperty("m_SavedProperties");
+            if(material.shader)
             {
-                var shaderKeywords = GetKeywords(material.shader);
-                if(shaderKeywords != null)
-                {
-                    #if UNITY_2021_2_OR_NEWER
-                    isCleaned |= DeleteUnusedKeywords(so.FindProperty("m_ValidKeywords"), shaderKeywords);
-                    isCleaned |= DeleteUnusedKeywords(so.FindProperty("m_InvalidKeywords"), shaderKeywords);
-                    #else
-                    isCleaned |= DeleteUnusedKeywords(so.FindProperty("m_ShaderKeywords"), shaderKeywords);
-                    #endif
-                }
+                var dic = propMap[material.shader];
+                DeleteUnused(savedProps, "m_TexEnvs", dic.textures);
+                DeleteUnused(savedProps, "m_Floats", dic.floats);
+                DeleteUnused(savedProps, "m_Colors", dic.vectors);
+
+                var shaderKeywords = material.shader.keywordSpace.keywordNames.ToHashSet();
+                DeleteUnusedKeywords(so.FindProperty("m_ValidKeywords"), shaderKeywords);
+                DeleteUnusedKeywords(so.FindProperty("m_InvalidKeywords"), shaderKeywords);
             }
 
-            if(isCleaned)
+            if(so.ApplyModifiedProperties())
             {
-                so.ApplyModifiedProperties();
-                if(isCleaned) Debug.Log($"[AvatarUtils] Clean up {material.name}", material);
+                Debug.Log($"[lilAvatarUtils] Clean up {material.name}", material);
                 cleanedMaterials.Add(material);
             }
 
-            #if UNITY_2022_1_OR_NEWER
-            if(material.parent != null)
+            if(material.parent)
             {
-                RemoveUnusedProperties(material.parent, cleanedMaterials);
+                RemoveUnusedProperties(material.parent, cleanedMaterials, propMap);
             }
-            #endif
         }
 
-        private static bool DeleteUnused(SerializedProperty props, Material material)
+        private static void DeleteUnused(SerializedProperty prop, string name, HashSet<string> names)
         {
-            bool isCleaned = false;
-            for(int i = props.arraySize - 1; i >= 0; i--)
+            using var props = prop.FindPropertyRelative(name);
+            if(props.arraySize == 0) return;
+            int i = 0;
+            var size = props.arraySize;
+            var p = props.GetArrayElementAtIndex(i);
+            void DeleteUnused()
             {
-                if(!material.HasProperty(props.GetArrayElementAtIndex(i).FindPropertyRelative("first").stringValue))
+                if(!names.Contains(GetStringInProperty(p, "first")))
                 {
-                    props.DeleteArrayElementAtIndex(i);
-                    isCleaned = true;
+                    p.DeleteCommand();
+                    if(i < --size)
+                    {
+                        p = props.GetArrayElementAtIndex(i);
+                        DeleteUnused();
+                    }
                 }
+                else if(p.NextVisible(false) && ++i < size) DeleteUnused();
             }
-            return isCleaned;
+            DeleteUnused();
         }
 
-        #if UNITY_2021_2_OR_NEWER
-        private static bool DeleteUnusedKeywords(SerializedProperty props, HashSet<string> shaderKeywords)
+        internal static string GetStringInProperty(SerializedProperty serializedProperty, string name)
         {
-            bool isCleaned = false;
+            using var prop = serializedProperty.FindPropertyRelative(name);
+            return prop.stringValue;
+        }
+
+        private static void DeleteUnusedKeywords(SerializedProperty props, HashSet<string> shaderKeywords)
+        {
             for(int i = props.arraySize - 1; i >= 0; i--)
-            {
                 if(!shaderKeywords.Contains(props.GetArrayElementAtIndex(i).stringValue))
-                {
                     props.DeleteArrayElementAtIndex(i);
-                    isCleaned = true;
+        }
+
+        // シェーダーのプロパティを検索して保持するクラス
+        private class ShaderPropertyContainer
+        {
+            internal HashSet<string> textures;
+            internal HashSet<string> floats;
+            internal HashSet<string> vectors;
+
+            internal ShaderPropertyContainer(Shader shader)
+            {
+                textures = new HashSet<string>();
+                floats = new HashSet<string>();
+                vectors = new HashSet<string>();
+
+                var count = shader.GetPropertyCount();
+
+                for(int i = 0; i < count; i++)
+                {
+                    var t = shader.GetPropertyType(i);
+                    var name = shader.GetPropertyName(i);
+                    if(t == ShaderPropertyType.Texture) textures.Add(name);
+                    else if(t == ShaderPropertyType.Color || t == ShaderPropertyType.Vector) vectors.Add(name);
+                    else floats.Add(name);
                 }
             }
-            return isCleaned;
-        }
-        #else
-        private static bool DeleteUnusedKeywords(SerializedProperty props, HashSet<string> shaderKeywords)
-        {
-            var newKeywords = string.Join(" ", props.stringValue.Split(' ').Where(k => shaderKeywords.Contains(k)));
-            if(props.stringValue != newKeywords)
-            {
-                props.stringValue = newKeywords;
-                return true;
-            }
-            return false;
-        }
-        #endif
-
-        // Get keywords from shader
-        private static HashSet<string> GetKeywords(Shader shader)
-        {
-            #if UNITY_2021_2_OR_NEWER
-            return new HashSet<string>(shader.keywordSpace.keywordNames);
-            #else
-            try
-            {
-                var methodGlobal = typeof(ShaderUtil).GetMethod("GetShaderGlobalKeywords", BindingFlags.Static | BindingFlags.NonPublic);
-                var methodLocal = typeof(ShaderUtil).GetMethod("GetShaderLocalKeywords", BindingFlags.Static | BindingFlags.NonPublic);
-                var keywords = new HashSet<string>((string[])methodGlobal.Invoke(null, new[]{shader}));
-                keywords.UnionWith((string[])methodLocal.Invoke(null, new[]{shader}));
-                return keywords;
-            }
-            catch(Exception e)
-            {
-                Debug.LogException(e);
-                return null;
-            }
-            #endif
         }
     }
 }

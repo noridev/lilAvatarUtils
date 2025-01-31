@@ -5,11 +5,17 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
-namespace lilAvatarUtils.MainWindow
+namespace moe.noridev.avatarutils
 {
+    [Docs(T_Title,T_Description)][DocsHowTo(T_HowTo)]
     [Serializable]
     internal class LightingTestGUI
     {
+        internal const string T_Title = "Lighting";
+        internal const string T_Description = "This is a tool to check how your avatar looks in various environments. When you install VRCSDK, you can also check how your avatar looks when shaders are not applied due to safety.";
+        internal const string T_HowTo = "It is useful for checking the appearance of avatars under special lighting conditions that cannot be detected in the Unity default scene. It also allows you to check rendering problems that you cannot detect by yourself when safety is activated.";
+        internal static readonly string[] T_TD = {T_Title, T_Description};
+
         internal GameObject gameObject;
         private GameObject prevGameObject = null;
         private GameObject renderedGameObject = null;
@@ -17,13 +23,10 @@ namespace lilAvatarUtils.MainWindow
         private GameObject renderedSafetyGameObject = null;
         #endif
         private GameObject gameObjectMainLight = null;
-        private List<GameObject> gameObjectSubLights = new List<GameObject>();
+        private List<GameObject> gameObjectSubLights = new();
         private GameObject gameObjectCube = null;
 
         private PreviewRenderUtility preview = null;
-        #if !UNITY_2020_1_OR_NEWER
-        private RenderTexture previewRenderTexture = null;
-        #endif
         private AmbientMode ambientModeCopy;
         private Color ambientLightCopy;
         private float intensityCopy = 1.0f;
@@ -31,18 +34,37 @@ namespace lilAvatarUtils.MainWindow
 
         public bool isSafetyOn = false;
         public bool isMenuOpened = false;
-        public Color colorAmbient = new Color(0.75f, 0.58f, 0.49f);
+        public Color colorAmbient = new(0.75f, 0.58f, 0.49f);
         public Color colorDirectional = Color.black;
         public Color colorSpot0 = Color.black;
         public Color colorSpot1 = Color.black;
         public Color colorSpot2 = Color.black;
         public LightShadows lightShadows = LightShadows.None;
         public float reflectionIntensity = 0;
+        internal AvatarUtils m_window;
 
-        internal void Draw(EditorWindow window)
+        [DocsField] private static readonly string[] L_NoLight      = {"No light"     ,"There is no light, including ambient light."};
+        [DocsField] private static readonly string[] L_Overexposure = {"Overexposure" ,"It is illuminated by excessively bright directional light."};
+        [DocsField] private static readonly string[] L_InShadow     = {"In Shadow"    ,"The whole avatar is in shadow."};
+        [DocsField] private static readonly string[] L_SpotLight    = {"Spot Light"   ,"It is lit by one spotlight."};
+        [DocsField] private static readonly string[] L_3SpotLights  = {"3 Spot Lights","It is lit by three spotlights."};
+        [DocsField] private static readonly string[] L_Custom       = {"Custom"       ,"User can customize lighting."};
+
+        private static readonly string[] L_Ambient    = {"Ambient"     , ""};
+        private static readonly string[] L_MainLight  = {"Main Light"  , ""};
+        private static readonly string[] L_SpotLight0 = {"Spot Light 0", ""};
+        private static readonly string[] L_SpotLight1 = {"Spot Light 1", ""};
+        private static readonly string[] L_SpotLight2 = {"Spot Light 2", ""};
+        private static readonly string[] L_Shadows    = {"Shadows"     , ""};
+        private static readonly string[] L_Reflection = {"Reflection"  , ""};
+
+        private static readonly string[] L_SimulateSafetyEnabled = {"Simulate safety enabled", "This simulates the appearance when safety is enabled on VRChat. Since the implementation of VRChat is unknown, it may not be reproduced completely."};
+
+        internal void Draw()
         {
+            if(!gameObject) return;
             #if LIL_VRCSDK3_AVATARS
-            if(isSafetyOn != EditorGUILayout.Toggle("Safety On", isSafetyOn))
+            if(isSafetyOn != L10n.ToggleLeft(L_SimulateSafetyEnabled, isSafetyOn))
             {
                 isSafetyOn = !isSafetyOn;
                 if(isSafetyOn)
@@ -58,7 +80,7 @@ namespace lilAvatarUtils.MainWindow
             }
             #endif
 
-            var rect = EditorGUILayout.GetControlRect(GUILayout.MaxWidth(window.position.width), GUILayout.MaxHeight(window.position.height));
+            var rect = EditorGUILayout.GetControlRect(GUILayout.MaxWidth(m_window.position.width), GUILayout.MaxHeight(m_window.position.height));
             if(rect.width < 32 || rect.height < 32) return;
             float width = Mathf.Round(rect.width/3-4);
             float height = Mathf.Round(rect.height/2-4);
@@ -78,7 +100,7 @@ namespace lilAvatarUtils.MainWindow
 
             InitializePreviewScene();
 
-            if(gameObjectCube == null)
+            if(!gameObjectCube)
             {
                 gameObjectCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 gameObjectCube.transform.position = gameObject.transform.position;
@@ -86,7 +108,7 @@ namespace lilAvatarUtils.MainWindow
                 preview.AddSingleGO(gameObjectCube);
             }
 
-            if(gameObjectMainLight == null)
+            if(!gameObjectMainLight)
             {
                 gameObjectMainLight = new GameObject("Main Light", typeof(Light));
                 var mainLightComponent = gameObjectMainLight.GetComponent<Light>();
@@ -105,9 +127,9 @@ namespace lilAvatarUtils.MainWindow
             if(
                 gameObjectSubLights == null ||
                 gameObjectSubLights.Count != 3 ||
-                gameObjectSubLights[0] == null ||
-                gameObjectSubLights[1] == null ||
-                gameObjectSubLights[2] == null
+                !gameObjectSubLights[0] ||
+                !gameObjectSubLights[1] ||
+                !gameObjectSubLights[2]
             )
             {
                 gameObjectSubLights = new List<GameObject>();
@@ -144,7 +166,7 @@ namespace lilAvatarUtils.MainWindow
             subLight2.color = new Color(0.8f,0.8f,0.8f,1.0f);
 
             var sceneView = SceneView.lastActiveSceneView;
-            if(sceneView != null && sceneView.camera != null)
+            if(sceneView && sceneView.camera)
             {
                 var sceneCamera = sceneView.camera;
                 preview.camera.transform.position = sceneCamera.transform.position;
@@ -178,7 +200,7 @@ namespace lilAvatarUtils.MainWindow
             subLight2.enabled = false;
             SetPreviewRenderSettings();
             preview.camera.Render();
-            DrawLightPreview(rects[0], "No light");
+            DrawLightPreview(rects[0], L_NoLight);
 
             // Overexposure
             preview.ambientColor = new Color(0.21f,0.22f,0.25f,1);
@@ -192,7 +214,7 @@ namespace lilAvatarUtils.MainWindow
             mainLight.shadows = LightShadows.None;
             SetPreviewRenderSettings();
             preview.camera.Render();
-            DrawLightPreview(rects[1], "Overexposure");
+            DrawLightPreview(rects[1], L_Overexposure);
 
             // In Shadow
             preview.ambientColor = new Color(0.21f,0.22f,0.25f,1);
@@ -206,7 +228,7 @@ namespace lilAvatarUtils.MainWindow
             mainLight.shadows = LightShadows.Soft;
             SetPreviewRenderSettings();
             preview.camera.Render();
-            DrawLightPreview(rects[2], "In Shadow");
+            DrawLightPreview(rects[2], L_InShadow);
 
             // Spot Light
             preview.ambientColor = new Color(0,0,0,1);
@@ -219,7 +241,7 @@ namespace lilAvatarUtils.MainWindow
             subLight2.enabled = true;
             SetPreviewRenderSettings();
             preview.camera.Render();
-            DrawLightPreview(rects[3], "Spot Light");
+            DrawLightPreview(rects[3], L_SpotLight);
 
             // Spot Lights
             preview.ambientColor = new Color(0,0,0,1);
@@ -232,7 +254,7 @@ namespace lilAvatarUtils.MainWindow
             subLight2.enabled = true;
             SetPreviewRenderSettings();
             preview.camera.Render();
-            DrawLightPreview(rects[4], "3 Spot Lights");
+            DrawLightPreview(rects[4], L_3SpotLights);
 
             // Custom
             gameObjectCube.SetActive(false);
@@ -250,7 +272,7 @@ namespace lilAvatarUtils.MainWindow
             SetPreviewRenderSettings();
             mainLight.shadows = lightShadows;
             preview.camera.Render();
-            DrawLightPreview(rects[5], "Custom");
+            DrawLightPreview(rects[5], L_Custom);
             DrawCustomSettings(rects[5]);
 
             RenderSettings.ambientMode = ambientModeCopy;
@@ -262,14 +284,11 @@ namespace lilAvatarUtils.MainWindow
         internal void OnDisable()
         {
             if(preview != null) preview.Cleanup();
-            #if !UNITY_2020_1_OR_NEWER
-            SafeDestroy(previewRenderTexture);
-            #endif
         }
 
         internal void Set(bool forceUpdate)
         {
-            if(gameObject != null && (prevGameObject != gameObject || renderedGameObject == null || forceUpdate))
+            if(gameObject && (prevGameObject != gameObject || !renderedGameObject || forceUpdate))
             {
 
                 prevGameObject = gameObject;
@@ -307,19 +326,6 @@ namespace lilAvatarUtils.MainWindow
         {
             preview.BeginPreview(rect, GUIStyle.none);
             foreach(var light in preview.lights) light.enabled = false;
-
-            #if !UNITY_2020_1_OR_NEWER
-            var rt = preview.camera.targetTexture; // targetTexture is initialized at BeginPreview()
-            int width = rt.width;
-            int height = rt.height;
-            if(previewRenderTexture == null || previewRenderTexture.width != width || previewRenderTexture.height != height)
-            {
-                SafeDestroy(previewRenderTexture);
-                previewRenderTexture = new RenderTexture(width, height, 32, rt.format);
-                previewRenderTexture.hideFlags = HideFlags.HideAndDontSave;
-                preview.camera.targetTexture = previewRenderTexture;
-            }
-            #endif
         }
 
         private void InitializeSpotLight(Light light)
@@ -334,22 +340,17 @@ namespace lilAvatarUtils.MainWindow
             light.range = 100;
         }
 
-        private void DrawLightPreview(Rect rect, string label)
+        private void DrawLightPreview(Rect rect, string[] label)
         {
-            #if !UNITY_2020_1_OR_NEWER
-            preview.EndPreview();
-            if(previewRenderTexture != null) GUI.DrawTexture(rect, previewRenderTexture, ScaleMode.ScaleToFit, false);
-            #else
             GUI.DrawTexture(rect, preview.EndPreview(), ScaleMode.ScaleToFit, false);
-            #endif
             DrawHeader(rect, label);
         }
 
-        private void DrawHeader(Rect rect, string label)
+        private void DrawHeader(Rect rect, string[] label)
         {
             var rectHeader = new Rect(rect.x,rect.y,rect.width,16);
             EditorGUI.DrawRect(rectHeader, new Color(0.0f, 0.0f, 0.0f, 0.75f));
-            EditorGUI.LabelField(rectHeader, label, GUIUtils.styleWhiteBold);
+            L10n.LabelField(rectHeader, label, GUIUtils.styleWhiteBold);
         }
 
         private void DrawCustomSettings(Rect rect)
@@ -363,18 +364,18 @@ namespace lilAvatarUtils.MainWindow
             {
                 Rect rectSetting = new Rect(rect.xMax-80-150,rect.y+16,230,16*7);
                 EditorGUI.DrawRect(rectSetting, new Color(0.0f, 0.0f, 0.0f, 0.75f));
-                EditorGUI.LabelField(new Rect(rect.xMax-80-150,rect.y+ 16,80,16), "Ambient", GUIUtils.styleWhite);
-                EditorGUI.LabelField(new Rect(rect.xMax-80-150,rect.y+ 32,80,16), "Main Light", GUIUtils.styleWhite);
-                EditorGUI.LabelField(new Rect(rect.xMax-80-150,rect.y+ 48,80,16), "Spot Light 0", GUIUtils.styleWhite);
-                EditorGUI.LabelField(new Rect(rect.xMax-80-150,rect.y+ 64,80,16), "Spot Light 1", GUIUtils.styleWhite);
-                EditorGUI.LabelField(new Rect(rect.xMax-80-150,rect.y+ 80,80,16), "Spot Light 2", GUIUtils.styleWhite);
-                EditorGUI.LabelField(new Rect(rect.xMax-80-150,rect.y+ 96,80,16), "Shadows", GUIUtils.styleWhite);
-                EditorGUI.LabelField(new Rect(rect.xMax-80-150,rect.y+112,80,16), "Reflection", GUIUtils.styleWhite);
-                colorAmbient        = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 16,150,16), new GUIContent(""), colorAmbient    , true, false, true);
-                colorDirectional    = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 32,150,16), new GUIContent(""), colorDirectional, true, false, true);
-                colorSpot0          = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 48,150,16), new GUIContent(""), colorSpot0      , true, false, true);
-                colorSpot1          = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 64,150,16), new GUIContent(""), colorSpot1      , true, false, true);
-                colorSpot2          = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 80,150,16), new GUIContent(""), colorSpot2      , true, false, true);
+                L10n.LabelField(new Rect(rect.xMax-80-150,rect.y+ 16,80,16), L_Ambient   , GUIUtils.styleWhite);
+                L10n.LabelField(new Rect(rect.xMax-80-150,rect.y+ 32,80,16), L_MainLight , GUIUtils.styleWhite);
+                L10n.LabelField(new Rect(rect.xMax-80-150,rect.y+ 48,80,16), L_SpotLight0, GUIUtils.styleWhite);
+                L10n.LabelField(new Rect(rect.xMax-80-150,rect.y+ 64,80,16), L_SpotLight1, GUIUtils.styleWhite);
+                L10n.LabelField(new Rect(rect.xMax-80-150,rect.y+ 80,80,16), L_SpotLight2, GUIUtils.styleWhite);
+                L10n.LabelField(new Rect(rect.xMax-80-150,rect.y+ 96,80,16), L_Shadows   , GUIUtils.styleWhite);
+                L10n.LabelField(new Rect(rect.xMax-80-150,rect.y+112,80,16), L_Reflection, GUIUtils.styleWhite);
+                colorAmbient        = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 16,150,16), GUIContent.none, colorAmbient    , true, false, true);
+                colorDirectional    = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 32,150,16), GUIContent.none, colorDirectional, true, false, true);
+                colorSpot0          = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 48,150,16), GUIContent.none, colorSpot0      , true, false, true);
+                colorSpot1          = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 64,150,16), GUIContent.none, colorSpot1      , true, false, true);
+                colorSpot2          = EditorGUI.ColorField(             new Rect(rect.xMax-150,rect.y+ 80,150,16), GUIContent.none, colorSpot2      , true, false, true);
                 lightShadows        = (LightShadows)EditorGUI.EnumPopup(new Rect(rect.xMax-150,rect.y+ 96,150,16), lightShadows);
                 reflectionIntensity = EditorGUI.Slider(                 new Rect(rect.xMax-150,rect.y+112,150,16), reflectionIntensity, 0, 1);
 
@@ -388,7 +389,7 @@ namespace lilAvatarUtils.MainWindow
 
         private void SafeDestroy(Object obj)
         {
-            if(obj != null) Object.DestroyImmediate(obj);
+            if(obj) Object.DestroyImmediate(obj);
         }
 
         private void SetPreviewRenderSettings()
@@ -415,12 +416,12 @@ namespace lilAvatarUtils.MainWindow
         private Material GetSafetyMaterial(Material material)
         {
             if(
-                material == null ||
-                material.shader != null && material.shader.name.StartsWith("VRChat/")
+                !material ||
+                material.shader && material.shader.name.StartsWith("VRChat/")
             ) return material;
 
             var tag = material.GetTag("VRCFallback", true);
-            if(string.IsNullOrEmpty(tag) && material.shader != null) tag = material.shader.name.Replace("Hidden","");
+            if(string.IsNullOrEmpty(tag) && material.shader) tag = material.shader.name.Replace("Hidden","");
 
             var materialFallback = new Material(TagToSafetyShader(tag));
             materialFallback.CopyPropertiesFromMaterial(material);

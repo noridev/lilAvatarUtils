@@ -6,13 +6,18 @@ using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Dynamics.PhysBone.Components;
 using VRC.Dynamics;
-using lilAvatarUtils.Utils;
 
-namespace lilAvatarUtils.MainWindow
+namespace moe.noridev.avatarutils
 {
+    [Docs(T_Title,T_Description)][DocsHowTo(T_HowTo)]
     [Serializable]
     internal class PhysBoneCollidersGUI : AbstractTabelGUI
     {
+        internal const string T_Title = "PBColliders";
+        internal const string T_Description = "This is a list of all PhysBone Colliders included in the avatar. Some properties can be edited, and the changed properties will be applied all at once by pressing the Apply button in the upper left.";
+        internal const string T_HowTo = "This helps to identify the source of collider references and eliminate unnecessary colliders that are not referenced anywhere.";
+        internal static readonly string[] T_TD = {T_Title, T_Description};
+
         public string empName   = ""; private const int indName   =  0;
         public string empRoot   = ""; private const int indRoot   =  1;
         public int    empRef    = 20;  private const int indRef   =  2;
@@ -25,14 +30,25 @@ namespace lilAvatarUtils.MainWindow
         public int    empAsSphr = 0;  private const int indAsSphr =  9;
 
         internal bool[] showReferences = {false};
-        internal Dictionary<VRCPhysBoneCollider, VRCPhysBone[]> pbcs = new Dictionary<VRCPhysBoneCollider, VRCPhysBone[]>();
+        internal HashSet<VRCPhysBoneCollider> pbcs;
 
-        internal override void Draw(AvatarUtilsWindow window)
+        [DocsField] private static readonly string[] L_Name   = {"Name"          , "Object name. Clicking this will select the corresponding object in the Hierarchy window."};
+        [DocsField] private static readonly string[] L_Root   = {"Root Transform", "The Transform used to calculate the collider position."};
+        [DocsField] private static readonly string[] L_Ref    = {"References"    , "The number of PhysBones referencing this collider."};
+        [DocsField] private static readonly string[] L_Shape  = {"Shape"         , "The shape of the collider."};
+        [DocsField] private static readonly string[] L_Radius = {"Radius"        , "The radius of the collider."};
+        [DocsField] private static readonly string[] L_Height = {"Height"        , "The height of the collider."};
+        [DocsField] private static readonly string[] L_Pos    = {"Position"      , "The offset of the collider's position from the root transform."};
+        [DocsField] private static readonly string[] L_Rot    = {"Rotation"      , "The amount of offset of the collider's rotation from the root bone."};
+        [DocsField] private static readonly string[] L_Inside = {"Inside"        , "Turning this on will act to push the PhysBone inside the collider."};
+        [DocsField] private static readonly string[] L_AsSphr = {"As Sphere"     , "When this is turned on, the shape of the collision detection for the PhysBone itself will be calculated as a sphere instead of a capsule."};
+
+        internal override void Draw()
         {
             if(IsEmptyLibs()) return;
 
             if(showReferences.Length != libs[0].items.Count) showReferences = Enumerable.Repeat(false, libs[0].items.Count).ToArray();
-            base.Draw(window);
+            base.Draw();
 
             GUIUtils.DrawLine();
             UpdateRects();
@@ -58,10 +74,8 @@ namespace lilAvatarUtils.MainWindow
                 GUILayout.Space(20);
 
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                EditorGUILayout.LabelField("Referenced from");
-                var pbc = (VRCPhysBoneCollider)libs[indName].items[count];
-                var pbs = pbcs[pbc];
-                foreach(var pb in pbs) GUIUtils.LabelFieldWithSelection(pb);
+                L10n.LabelField(L_ReferencedFrom);
+                ReferencesGUI((VRCPhysBoneCollider)libs[indName].items[count]);
                 GUILayout.EndVertical();
                 GUILayout.EndHorizontal();
             }
@@ -73,31 +87,31 @@ namespace lilAvatarUtils.MainWindow
             var shapeLabs = Enum.GetNames(typeof(VRCPhysBoneColliderBase.ShapeType));
 
             var transType = typeof(Transform);
-            //                                items               label        rect                 isEdit type       scene  isMask emp        labs       empGUI empCon mainGUI
-            var names   = new TableProperties(new List<object>(), "Name"     , new Rect(0,0,200,0), false, null     , false, false, empName  , null     , null,  null,  null);
-            var roots   = new TableProperties(new List<object>(), "Root"     , new Rect(0,0,100,0), true , transType, true , false, empRoot  , null     , null,  null,  null);
-            var refs    = new TableProperties(new List<object>(), "Refs"     , new Rect(0,0, 50,0), false, null     , false, false, empRef   , null     , null,  null,  null);
-            var shapes  = new TableProperties(new List<object>(), "Shape"    , new Rect(0,0, 70,0), true , null     , false, true , empShape , shapeLabs, null,  null,  null);
-            var radiuss = new TableProperties(new List<object>(), "Radius"   , new Rect(0,0, 50,0), true , null     , false, false, empRadius, null     , null,  null,  null);
-            var heights = new TableProperties(new List<object>(), "Height"   , new Rect(0,0, 50,0), true , null     , false, false, empHeight, null     , null,  null,  null);
-            var poss    = new TableProperties(new List<object>(), "Position" , new Rect(0,0,120,0), false, null     , false, false, empPos   , null     , null,  null,  null);
-            var rots    = new TableProperties(new List<object>(), "Rotation" , new Rect(0,0,120,0), false, null     , false, false, empRot   , null     , null,  null,  null);
-            var insides = new TableProperties(new List<object>(), "Inside"   , new Rect(0,0, 50,0), true , null     , false, true , empInside, null     , null,  null,  null);
-            var asSphrs = new TableProperties(new List<object>(), "As Sphere", new Rect(0,0, 60,0), true , null     , false, true , empAsSphr, null     , null,  null,  null);
+            //                                items               label     rect                 isEdit type       scene  isMask emp        labs       empGUI empCon mainGUI
+            var names   = new TableProperties(new List<object>(), L_Name  , new Rect(0,0,200,0), false, null     , false, false, empName  , null     , null,  null,  null);
+            var roots   = new TableProperties(new List<object>(), L_Root  , new Rect(0,0,100,0), true , transType, true , false, empRoot  , null     , null,  null,  null);
+            var refs    = new TableProperties(new List<object>(), L_Ref   , new Rect(0,0, 50,0), false, null     , false, false, empRef   , null     , null,  null,  null);
+            var shapes  = new TableProperties(new List<object>(), L_Shape , new Rect(0,0, 70,0), true , null     , false, true , empShape , shapeLabs, null,  null,  null);
+            var radiuss = new TableProperties(new List<object>(), L_Radius, new Rect(0,0, 50,0), true , null     , false, false, empRadius, null     , null,  null,  null);
+            var heights = new TableProperties(new List<object>(), L_Height, new Rect(0,0, 50,0), true , null     , false, false, empHeight, null     , null,  null,  null);
+            var poss    = new TableProperties(new List<object>(), L_Pos   , new Rect(0,0,120,0), false, null     , false, false, empPos   , null     , null,  null,  null);
+            var rots    = new TableProperties(new List<object>(), L_Rot   , new Rect(0,0,120,0), false, null     , false, false, empRot   , null     , null,  null,  null);
+            var insides = new TableProperties(new List<object>(), L_Inside, new Rect(0,0, 50,0), true , null     , false, true , empInside, null     , null,  null,  null);
+            var asSphrs = new TableProperties(new List<object>(), L_AsSphr, new Rect(0,0, 60,0), true , null     , false, true , empAsSphr, null     , null,  null,  null);
 
             Sort();
             foreach(var pbc in pbcs)
             {
-                names  .items.Add(pbc.Key                                );
-                roots  .items.Add(pbc.Key.rootTransform                  );
-                refs   .items.Add(pbc.Value.Length                       );
-                shapes .items.Add(pbc.Key.shapeType                      );
-                radiuss.items.Add(pbc.Key.radius                         );
-                heights.items.Add(pbc.Key.height                         );
-                poss   .items.Add(pbc.Key.position.ToString()            );
-                rots   .items.Add(pbc.Key.rotation.eulerAngles.ToString());
-                insides.items.Add(pbc.Key.insideBounds                   );
-                asSphrs.items.Add(pbc.Key.bonesAsSpheres                 );
+                names  .items.Add(pbc                                );
+                roots  .items.Add(pbc.rootTransform                  );
+                refs   .items.Add(m_window.refs[pbc].Count           );
+                shapes .items.Add(pbc.shapeType                      );
+                radiuss.items.Add(pbc.radius                         );
+                heights.items.Add(pbc.height                         );
+                poss   .items.Add(pbc.position.ToString()            );
+                rots   .items.Add(pbc.rotation.eulerAngles.ToString());
+                insides.items.Add(pbc.insideBounds                   );
+                asSphrs.items.Add(pbc.bonesAsSpheres                 );
             }
 
             libs = new []{
@@ -118,22 +132,22 @@ namespace lilAvatarUtils.MainWindow
         {
             switch(sortIndex)
             {
-                case indName   : pbcs = pbcs.Sort(pb => pb.Key.name                   , isDescending); break;
-                case indRoot   : pbcs = pbcs.Sort(pb => pb.Key.rootTransform.GetName(), isDescending); break;
-                case indRef    : pbcs = pbcs.Sort(pb => pb.Value.Length               , isDescending); break;
-                case indShape  : pbcs = pbcs.Sort(pb => pb.Key.shapeType              , isDescending); break;
-                case indRadius : pbcs = pbcs.Sort(pb => pb.Key.radius                 , isDescending); break;
-                case indHeight : pbcs = pbcs.Sort(pb => pb.Key.height                 , isDescending); break;
-                case indPos    : pbcs = pbcs.Sort(pb => pb.Key.position.ToString()    , isDescending); break;
-                case indRot    : pbcs = pbcs.Sort(pb => pb.Key.rotation.ToString()    , isDescending); break;
-                case indInside : pbcs = pbcs.Sort(pb => pb.Key.insideBounds           , isDescending); break;
-                case indAsSphr : pbcs = pbcs.Sort(pb => pb.Key.bonesAsSpheres         , isDescending); break;
+                case indName   : pbcs = pbcs.Sort(pb => pb.name                   , isDescending); break;
+                case indRoot   : pbcs = pbcs.Sort(pb => pb.rootTransform.GetName(), isDescending); break;
+                case indRef    : pbcs = pbcs.Sort(pb => m_window.refs[pb].Count   , isDescending); break;
+                case indShape  : pbcs = pbcs.Sort(pb => pb.shapeType              , isDescending); break;
+                case indRadius : pbcs = pbcs.Sort(pb => pb.radius                 , isDescending); break;
+                case indHeight : pbcs = pbcs.Sort(pb => pb.height                 , isDescending); break;
+                case indPos    : pbcs = pbcs.Sort(pb => pb.position.ToString()    , isDescending); break;
+                case indRot    : pbcs = pbcs.Sort(pb => pb.rotation.ToString()    , isDescending); break;
+                case indInside : pbcs = pbcs.Sort(pb => pb.insideBounds           , isDescending); break;
+                case indAsSphr : pbcs = pbcs.Sort(pb => pb.bonesAsSpheres         , isDescending); break;
             }
         }
 
         protected override void SortLibs()
         {
-            SortLibs(pbcs.Keys.ToArray());
+            SortLibs(pbcs.ToArray());
         }
 
         protected override void ApplyModification()

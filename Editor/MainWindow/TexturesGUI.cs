@@ -1,16 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using lilAvatarUtils.Analyzer;
-using lilAvatarUtils.Utils;
 using UnityEditor;
 using UnityEngine;
 
-namespace lilAvatarUtils.MainWindow
+namespace moe.noridev.avatarutils
 {
+    [Docs(T_Title,T_Description)][DocsHowTo(T_HowTo)]
     [Serializable]
     internal class TexturesGUI : AbstractTabelGUI
     {
+        internal const string T_Title = "Textures";
+        internal const string T_Description = "This is a list of all textures included in the avatar. Some properties can be edited, and the changed properties will be applied all at once by pressing the Apply button in the upper left.";
+        internal const string T_HowTo = "This tool is useful for identifying unnecessary textures or textures with excessive resolution to reduce the size of your avatar. For example, there are cases where the texture before modification remains on the material's luminescence or outline, which wastes VRAM, but with this tool you can replace the corresponding texture with the modified texture all at once. You can also efficiently reduce VRAM size by sorting the textures by VRAM capacity and changing the import settings.";
+        internal static readonly string[] T_TD = {T_Title, T_Description};
+
         public string empNames   = "";      private const int indNames   =  0;
         public string empReps    = "";      private const int indReps    =  1;
         public int    empTypes   = 0;       private const int indTypes   =  2;
@@ -29,21 +33,40 @@ namespace lilAvatarUtils.MainWindow
         public int    empReads   = 0;       private const int indReads   = 15;
 
         internal bool[] showReferences = {false};
-        internal Dictionary<Texture, TextureData> tds = new Dictionary<Texture, TextureData>();
+        internal Dictionary<Texture, TextureData> tds;
+        public bool showNonMaterial = false;
 
-        internal override void Draw(AvatarUtilsWindow window)
+        private static readonly string[] L_ShowNonMaterial = {"Display textures used other than materials", ""};
+
+        [DocsField] private static readonly string[] L_Names   = {"Name"                 , "Asset name. Clicking this will select the corresponding asset in the Project window."};
+        [DocsField] private static readonly string[] L_Reps    = {"Replace"              , "If you specify a different texture here, you can replace that texture for all materials present on the avatar at once."};
+        [DocsField] private static readonly string[] L_Types   = {"Type"                 , "The type of texture. Generally, Texture2D is used."};
+        [DocsField] private static readonly string[] L_Vrams   = {"VRAM Size"            , "The amount of VRAM used when textures are loaded. It is desirable to adjust this value so that it is as small as possible."};
+        [DocsField] private static readonly string[] L_Ress    = {"Resolution"           , "The texture resolution on Unity. The smaller the resolution, the smaller the VRAM size, so it is recommended to set it as small as possible without noticeable artifacts."};
+        [DocsField] private static readonly string[] L_ResMaxs = {"Max Resolution"       , "The maximum vertical or horizontal size of the texture resolution. The image will be scaled down on import to be smaller than this value while preserving as much of the image's aspect ratio as possible. The resolution of the original image file is not changed, so you can revert it to a larger setting."};
+        [DocsField] private static readonly string[] L_Comps   = {"Compression"          , "This sets the quality of the texture after compression. The higher the setting, the clearer the texture will be at the expense of the compression rate. However, if the texture contains transparency, it will be clearer without any change in VRAM size due to the compression format."};
+        [DocsField] private static readonly string[] L_Formats = {"Format"               , "The texture format. This varies depending on whether transparency is enabled and the compression settings."};
+        [DocsField] private static readonly string[] L_Crunchs = {"Crunch Compression"   , "Whether or not to use crunch compression. For DXT or ETC formats only, crunch compression can reduce file size at the expense of image quality. However, the VRAM size does not change, so the load does not change. Also, even if you do not use crunch compression, compression is applied to the entire avatar data, so the change is not as large as it seems. If you want to reduce the avatar size, it is more effective to lower the texture resolution."};
+        [DocsField] private static readonly string[] L_CompQs  = {"Compression Quality"  , "Texture quality after crunch compression. The higher the setting, the more beautiful the texture will be at the expense of compression rate."};
+        [DocsField] private static readonly string[] L_Srgbs   = {"sRGB"                 , "This setting determines whether to apply inverse gamma correction to textures. Generally, textures with color information (such as albedo and emission) are set to sRGB, and textures with numerical information (such as smoothness and masks) are set to non-sRGB. Please set it appropriately, as the appearance will change depending on whether the project's color space is Linear or Gamma (depending on the avatar's display environment)."};
+        [DocsField] private static readonly string[] L_ASrcs   = {"Alpha Source"         , "This is the source from which Unity generates the alpha channel of a texture."};
+        [DocsField] private static readonly string[] L_Alphas  = {"Alpha Is Transparency", "Extends the color channels of transparent textures outward to avoid blackening of transparent areas. Set this to off if you want to use the color channels as is."};
+        [DocsField] private static readonly string[] L_Mips    = {"MipMap"               , "Whether to generate mipmaps. It is generally recommended to turn it off, but if the texture is used in the vertex shader (such as for masking outlines), turning it off can reduce VRAM size by 33%."};
+        [DocsField] private static readonly string[] L_Streams = {"Mip Streaming"        , "Whether to enable Mip Streaming. This reduces VRAM consumption by loading only the mipmaps (reduced textures) required according to the camera position."};
+        [DocsField] private static readonly string[] L_Reads   = {"Read/Write"           , "This setting allows scripts to access textures. Copying textures for script access doubles the RAM consumption, so it is recommended to turn this setting off if not required."};
+
+        internal override void Draw()
         {
             if(IsEmptyLibs()) return;
 
-            if(showReferences.Length != libs[0].items.Count) showReferences = Enumerable.Repeat(false, libs[0].items.Count).ToArray();
-            base.Draw(window);
+            base.Draw();
 
             GUIUtils.DrawLine();
             UpdateRects();
             var rectTotal = GetShiftedRects();
             long sumVRAM = libs[indVrams].items.Sum(item => (long)item);
-            if(labelMasks[indNames]) GUIUtils.LabelField(rectTotal[indNames], "Total"                           , false);
-            if(labelMasks[indVrams]) GUIUtils.LabelField(rectTotal[indVrams], EditorUtility.FormatBytes(sumVRAM), false);
+            if(labelMasks[indNames]) L10n    .LabelField(rectTotal[indNames], "Total"                           );
+            if(labelMasks[indVrams]) GUIUtils.LabelField(rectTotal[indVrams], EditorUtility.FormatBytes(sumVRAM));
 
             empNames   = (string)libs[indNames  ].emphasize;
             //empReps    = (string)libs[indReps   ].emphasize;
@@ -63,6 +86,14 @@ namespace lilAvatarUtils.MainWindow
             empReads   = (int   )libs[indReads  ].emphasize;
         }
 
+        protected override void ButtonEx(Rect position)
+        {
+            EditorGUI.BeginChangeCheck();
+            showNonMaterial = L10n.ToggleLeft(position, L_ShowNonMaterial, showNonMaterial);
+            if(EditorGUI.EndChangeCheck()) Set();
+            if(showReferences.Length != libs[0].items.Count) showReferences = Enumerable.Repeat(false, libs[0].items.Count).ToArray();
+        }
+
         protected override void LineGUIEx(int count)
         {
             showReferences[count] = GUIUtils.Foldout(new Rect(libs[0].rect.x - 16, libs[0].rect.y, 16, libs[0].rect.height), showReferences[count]);
@@ -72,78 +103,22 @@ namespace lilAvatarUtils.MainWindow
                 GUILayout.Space(20);
 
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                EditorGUILayout.LabelField("Referenced from");
+                L10n.LabelField(L_ReferencedFrom);
                 var tex = (Texture)libs[indNames].items[count];
-                var td = tds[tex];
-                foreach(KeyValuePair<Material, MaterialData> md in td.mds)
-                {
-                    GUIUtils.LabelFieldWithSelection(md.Key);
-                    EditorGUI.indentLevel++;
-                    if(md.Value.gameObjects != null)
-                    {
-                        foreach(GameObject obj in md.Value.gameObjects)
-                        {
-                            GUIUtils.LabelFieldWithSelection(obj);
-                        }
-                    }
-                    if(md.Value.acds != null)
-                    {
-                        foreach(KeyValuePair<AnimationClip, AnimationClipData> acd in md.Value.acds)
-                        {
-                            GUIUtils.LabelFieldWithSelection(acd.Key);
-                            EditorGUI.indentLevel++;
-                            foreach(KeyValuePair<RuntimeAnimatorController, AnimatorData> ad in acd.Value.ads)
-                            {
-                                GUIUtils.LabelFieldWithSelection(ad.Key);
-                                EditorGUI.indentLevel++;
-                                foreach(GameObject obj in ad.Value.gameObjects)
-                                {
-                                    GUIUtils.LabelFieldWithSelection(obj);
-                                }
-                                EditorGUI.indentLevel--;
-                            }
-                            EditorGUI.indentLevel--;
-                        }
-                    }
-                    EditorGUI.indentLevel--;
-                }
+                ReferencesGUI(tex);
 
-                if(GUIUtils.UnchangeButton("Remove references") && EditorUtility.DisplayDialog("AvatarUtils", "Are you sure you want to remove it?", "Yes", "Cancel"))
+                if(GUIUtils.UnchangeButton(L10n.G("Remove references", "")) && L10n.DisplayDialog(AvatarUtils.TEXT_WINDOW_NAME, "Are you sure you want to remove it?", "Yes", "Cancel"))
                 {
-                    foreach(KeyValuePair<Material, MaterialData> md in td.mds)
+                    if(!m_window.refs.TryGetValue(tex, out var parents) || parents.Count == 0) return;
+                    foreach(var parent in parents)
                     {
-                        if(md.Key == null) continue;
-                        RemoveTextureReference(md.Key, tex);
+                        ObjectHelper.RemoveReferences(parent, tex);
                     }
-                    TextureAnalyzer.Analyze(gameObject, out tds);
                     Set();
                 }
                 GUILayout.EndVertical();
                 GUILayout.EndHorizontal();
             }
-        }
-
-        private void RemoveTextureReference(Material m, Texture tex)
-        {
-            var so = new SerializedObject(m);
-            so.Update();
-            var props = so.FindProperty("m_SavedProperties").FindPropertyRelative("m_TexEnvs");
-            for(int i = 0; i < props.arraySize; i++)
-            {
-                var texprop = props.GetArrayElementAtIndex(i).FindPropertyRelative("second").FindPropertyRelative("m_Texture");
-                if(texprop.objectReferenceValue == tex)
-                {
-                    texprop.objectReferenceValue = null;
-                }
-            }
-            so.ApplyModifiedProperties();
-
-            #if UNITY_2022_1_OR_NEWER
-            if(m.parent != null)
-            {
-                RemoveTextureReference(m.parent, tex);
-            }
-            #endif
         }
 
         internal override void Set()
@@ -155,26 +130,28 @@ namespace lilAvatarUtils.MainWindow
             var maxLabs = new[]{"32","64","128","256","512","1024","2048","4096","8192"};
             var compLabs = new[]{"None","Low Quality","Normal Quality","High Quality"};
 
-            //                                items               label                    rect                 isEdit type  scene  isMask emp         labs      empGUI      empCon      mainGUI
-            var names   = new TableProperties(new List<object>(), "Name"                 , new Rect(0,0,200,0), false, null, false, false, empNames  , null    , null      , null      , null);
-            var reps    = new TableProperties(new List<object>(), "Replace"              , new Rect(0,0,200,0), true , typeTex, false, false, null   , null    , null      , EmpConReps, null);
-            var types   = new TableProperties(new List<object>(), "Type"                 , new Rect(0,0,100,0), false, null, false, true , empTypes  , typeLabs, null      , null      , null);
-            var vrams   = new TableProperties(new List<object>(), "VRAM Size"            , new Rect(0,0, 70,0), false, null, false, false, empVrams  , null    , EmpGUIVRAM, EmpConVRAM, MainGUIVRAM);
-            var ress    = new TableProperties(new List<object>(), "Resolution"           , new Rect(0,0, 80,0), false, null, false, false, empRess   , null    , null      , EmpConRes , MainGUIRes);
-            var resMaxs = new TableProperties(new List<object>(), "Max Resolution"       , new Rect(0,0,100,0), true , null, false, false, empResMaxs, maxLabs , null      , null      , MainGUIResMax);
-            var comps   = new TableProperties(new List<object>(), "Compression"          , new Rect(0,0, 90,0), true , null, false, true , empComps  , compLabs, null      , EmpConComp, MainGUIComp);
-            var formats = new TableProperties(new List<object>(), "Format"               , new Rect(0,0,110,0), false, null, false, false, empFormats, null    , null      , EmpConForm, MainGUIForm);
-            var crunchs = new TableProperties(new List<object>(), "Crunch Compression"   , new Rect(0,0,120,0), true , null, false, true , empCrunchs, null    , null      , null      , MainGUICrunch);
-            var compQs  = new TableProperties(new List<object>(), "Compression Quality"  , new Rect(0,0,130,0), true , null, false, false, empCompQs , null    , null      , null      , MainGUICompQ);
-            var srgbs   = new TableProperties(new List<object>(), "sRGB"                 , new Rect(0,0, 50,0), true , null, false, true , empSrgbs  , null    , null      , null      , null);
-            var asrcs   = new TableProperties(new List<object>(), "Alpha Source"         , new Rect(0,0,130,0), true , null, false, true , empASrcs  , asrcLabs, null      , null      , null);
-            var alphas  = new TableProperties(new List<object>(), "Alpha Is Transparency", new Rect(0,0,130,0), true , null, false, true , empAlphas , null    , null      , null      , MainGUIAlpha);
-            var mips    = new TableProperties(new List<object>(), "MipMap"               , new Rect(0,0, 50,0), true , null, false, true , empMips   , null    , null      , null      , null);
-            var streams = new TableProperties(new List<object>(), "Streaming MipMaps"    , new Rect(0,0,120,0), true , null, false, true , empStreams, null    , EmpGUISM  , EmpConSM  , null);
-            var reads   = new TableProperties(new List<object>(), "Read/Write"           , new Rect(0,0, 70,0), true , null, false, true , empReads  , null    , null      , null      , null);
+            //                                items               label      rect                 isEdit type  scene  isMask emp         labs      empGUI      empCon      mainGUI
+            var names   = new TableProperties(new List<object>(), L_Names  , new Rect(0,0,200,0), false, null, false, false, empNames  , null    , null      , null      , null);
+            var reps    = new TableProperties(new List<object>(), L_Reps   , new Rect(0,0,200,0), true , typeTex, false, false, null   , null    , null      , EmpConReps, null);
+            var types   = new TableProperties(new List<object>(), L_Types  , new Rect(0,0,100,0), false, null, false, true , empTypes  , typeLabs, null      , null      , null);
+            var vrams   = new TableProperties(new List<object>(), L_Vrams  , new Rect(0,0, 70,0), false, null, false, false, empVrams  , null    , EmpGUIVRAM, EmpConVRAM, MainGUIVRAM);
+            var ress    = new TableProperties(new List<object>(), L_Ress   , new Rect(0,0, 80,0), false, null, false, false, empRess   , null    , null      , EmpConRes , MainGUIRes);
+            var resMaxs = new TableProperties(new List<object>(), L_ResMaxs, new Rect(0,0,100,0), true , null, false, false, empResMaxs, maxLabs , null      , null      , MainGUIResMax);
+            var comps   = new TableProperties(new List<object>(), L_Comps  , new Rect(0,0, 90,0), true , null, false, true , empComps  , compLabs, null      , EmpConComp, MainGUIComp);
+            var formats = new TableProperties(new List<object>(), L_Formats, new Rect(0,0,110,0), false, null, false, false, empFormats, null    , null      , EmpConForm, MainGUIForm);
+            var crunchs = new TableProperties(new List<object>(), L_Crunchs, new Rect(0,0,120,0), true , null, false, true , empCrunchs, null    , null      , null      , MainGUICrunch);
+            var compQs  = new TableProperties(new List<object>(), L_CompQs , new Rect(0,0,130,0), true , null, false, false, empCompQs , null    , null      , null      , MainGUICompQ);
+            var srgbs   = new TableProperties(new List<object>(), L_Srgbs  , new Rect(0,0, 50,0), true , null, false, true , empSrgbs  , null    , null      , null      , null);
+            var asrcs   = new TableProperties(new List<object>(), L_ASrcs  , new Rect(0,0,130,0), true , null, false, true , empASrcs  , asrcLabs, null      , null      , null);
+            var alphas  = new TableProperties(new List<object>(), L_Alphas , new Rect(0,0,130,0), true , null, false, true , empAlphas , null    , null      , null      , MainGUIAlpha);
+            var mips    = new TableProperties(new List<object>(), L_Mips   , new Rect(0,0, 50,0), true , null, false, true , empMips   , null    , null      , null      , null);
+            var streams = new TableProperties(new List<object>(), L_Streams, new Rect(0,0,120,0), true , null, false, true , empStreams, null    , EmpGUISM  , EmpConSM  , null);
+            var reads   = new TableProperties(new List<object>(), L_Reads  , new Rect(0,0, 70,0), true , null, false, true , empReads  , null    , null      , null      , null);
 
             Sort();
-            foreach(var td in tds)
+            var tds2 = tds.ToArray();
+            if(!showNonMaterial) tds2 = tds2.Where(kv => m_window.refs[kv.Key].Any(r => r is Material)).ToArray();
+            foreach(var td in tds2)
             {
                 switch(td.Key)
                 {
@@ -311,23 +288,10 @@ namespace lilAvatarUtils.MainWindow
                 var rep = libs[indReps].items[count] as Texture;
                 if(tex != rep)
                 {
-                    var td = tds[tex];
-                    foreach(var material in td.mds.Keys)
-                    using(var so = new SerializedObject(material))
-                    using(var iter = so.FindProperty("m_SavedProperties").FindPropertyRelative("m_TexEnvs"))
-                    using(var end = iter.Copy())
+                    if(!m_window.refs.TryGetValue(tex, out var parents) || parents.Count == 0) return;
+                    foreach(var parent in parents)
                     {
-                        end.Next(false);
-                        var enterChildren = true;
-                        while(iter.Next(enterChildren) && !SerializedProperty.EqualContents(iter, end))
-                        {
-                            enterChildren = iter.propertyType != SerializedPropertyType.String;
-                            if(iter.propertyType == SerializedPropertyType.ObjectReference && iter.objectReferenceValue && iter.objectReferenceValue == tex)
-                            {
-                                iter.objectReferenceValue = rep;
-                            }
-                        }
-                        so.ApplyModifiedProperties();
+                        ObjectHelper.ReplaceReferences(parent, tex, rep);
                     }
                 }
             }

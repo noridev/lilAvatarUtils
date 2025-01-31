@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace lilAvatarUtils.MainWindow
+namespace moe.noridev.avatarutils
 {
     internal class GUIUtils
     {
@@ -83,9 +83,9 @@ namespace lilAvatarUtils.MainWindow
                 styleRedObject.fontStyle = FontStyle.Bold;
                 SetColors(styleRedObject, Color.red);
             }
-            if(iconMenu     == null) iconMenu     = EditorGUIUtility.IconContent(ICON_MENU    ).image;
-            if(iconMenu_D   == null) iconMenu_D   = EditorGUIUtility.IconContent(ICON_MENU_D  ).image;
-            if(iconRefresh  == null) iconRefresh  = EditorGUIUtility.IconContent(ICON_REFRESH ).image;
+            if(!iconMenu   ) iconMenu     = EditorGUIUtility.IconContent(ICON_MENU    ).image;
+            if(!iconMenu_D ) iconMenu_D   = EditorGUIUtility.IconContent(ICON_MENU_D  ).image;
+            if(!iconRefresh) iconRefresh  = EditorGUIUtility.IconContent(ICON_REFRESH ).image;
         }
 
         private static void SetColors(GUIStyle style, Color color)
@@ -161,17 +161,17 @@ namespace lilAvatarUtils.MainWindow
             else        style = EditorStyles.label;
             GUIContent content = EditorGUIUtility.ObjectContent(obj, obj.GetType());
             content.tooltip = AssetDatabase.GetAssetPath(obj);
-            if(!string.IsNullOrEmpty(content.tooltip) && obj is not Shader) content.text = Path.GetFileName(content.tooltip);
-            if(AssetDatabase.IsSubAsset(obj)) content.text = obj.name;
+            if(content.text == Path.GetFileNameWithoutExtension(content.tooltip)) content.text = Path.GetFileName(content.tooltip);
 
             var sizeCopy = EditorGUIUtility.GetIconSize();
             EditorGUIUtility.SetIconSize(new Vector2(rect.height-2, rect.height-2));
-            if(UnchangeButton(rect, content, style) && obj != null)
+            if(UnchangeButton(rect, content, style) && obj)
             {
                 Selection.activeObject = obj;
                 EditorGUIUtility.PingObject(obj);
             }
             EditorGUIUtility.SetIconSize(sizeCopy);
+            content.tooltip = "";
         }
 
         internal static void LabelFieldWithSelection(Object obj, bool hilight = false)

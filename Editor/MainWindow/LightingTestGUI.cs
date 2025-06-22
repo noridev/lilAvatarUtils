@@ -423,11 +423,25 @@ namespace moe.noridev.avatarutils
             var tag = material.GetTag("VRCFallback", true);
             if(string.IsNullOrEmpty(tag) && material.shader) tag = material.shader.name.Replace("Hidden","");
 
-            var materialFallback = new Material(TagToSafetyShader(tag));
-            materialFallback.CopyPropertiesFromMaterial(material);
+            var materialFallbackCopy = new Material(TagToSafetyShader(tag));
+            materialFallbackCopy.CopyPropertiesFromMaterial(material);
+
+            // Properties copied via CopyPropertiesFromMaterial remain incomplete until the scene is saved.
+            // Creating a new material instance ensures all properties are correctly applied.
+            var materialFallback = new Material(materialFallbackCopy);
+            Object.DestroyImmediate(materialFallbackCopy);
+
             materialFallback.renderQueue = materialFallback.shader.renderQueue;
-            if(tag.Contains("DoubleSided")) materialFallback.SetInt("_Cull", 0);
-            else                            materialFallback.SetInt("_Cull", 2);
+            if(tag.Contains("DoubleSided"))
+            {
+                materialFallback.SetInt("_Cull", 0);
+                materialFallback.SetInt("_Culling", 0);
+            }
+            else
+            {
+                materialFallback.SetInt("_Cull", 2);
+                materialFallback.SetInt("_Culling", 2);
+            }
 
             foreach (var pass in new string[] { "Always", "ForwardBase", "ForwardAdd", "Deferred", "ShadowCaster", "MotionVectors", "Vertex", "VertexLMRGBM", "VertexLM", "Meta" })
             {
@@ -475,6 +489,13 @@ namespace moe.noridev.avatarutils
             if(tag.Contains("VertexLit"))
             {
                 return Shader.Find("Legacy Shaders/VertexLit");
+            }
+            if(tag.Contains("toonstandard"))
+            {
+                var shader = default(Shader);
+                if(tag.Contains("outline")) shader = Shader.Find("VRChat/Mobile/Toon Standard (Outline)");
+                else                        shader = Shader.Find("VRChat/Mobile/Toon Standard");
+                if(shader != null) return shader;
             }
             return Shader.Find("Standard");
         }

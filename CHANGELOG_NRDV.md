@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -->
 
+## [2.0.2] - 2025-08-09
+기반 lilAvatarUtils 버전: <b>2.1.1</b>
+
+---
+
 ## [2.0.1] - 2025-06-22
 기반 lilAvatarUtils 버전: <b>2.0.0</b>
 

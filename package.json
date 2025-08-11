@@ -1,12 +1,12 @@
 {
   "name": "moe.noridev.avatar-utils",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "baseVersion": "2.1.2",
   "displayName": "NoriDev - lilAvatarUtils",
   "description": "Utilities for avatar modification.",
   "unity": "2022.3",
   "license": "MIT",
-  "url" : "https://github.com/noridev/lilAvatarUtils/releases/download/2.0.0/moe.noridev.avatar-utils.2.0.0.zip?",
+  "url" : "https://github.com/noridev/lilAvatarUtils/releases/download/2.0.3/moe.noridev.avatar-utils.2.0.3.zip?",
   "repo" : "https://vpm.noridev.moe/index.json",
   "changelogUrl": "https://github.com/noridev/lilAvatarUtils/blob/dev/CHANGELOG_NRDV.md"
 }

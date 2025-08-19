@@ -1,6 +1,6 @@
 {
   "name": "moe.noridev.avatar-utils",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "baseVersion": "2.1.2",
   "displayName": "NoriDev - lilAvatarUtils",
   "description": "Utilities for avatar modification.",

@@ -4,6 +4,10 @@
   "baseVersion": "2.1.2",
   "displayName": "NoriDev - lilAvatarUtils",
   "description": "Utilities for avatar modification.",
+  "author": {
+    "name": "NoriDev",
+    "url": "https://github.com/noridev"
+  },
   "unity": "2022.3",
   "license": "MIT",
   "url" : "https://github.com/noridev/lilAvatarUtils/releases/download/2.0.3/moe.noridev.avatar-utils.2.0.3.zip?",

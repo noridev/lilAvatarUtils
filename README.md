@@ -7,7 +7,7 @@ Please install by **one** of the following methods.
 
 ### VPM
 
-Add my [repos](https://vpm.noridev.moe) and add `moe.noridev.avatar-utils` to your project.<br>
+Add my [repos](https://vpm.noridev.moe) and add `NoriDev - lilAvatarUtils`(`moe.noridev.avatar-utils`) to your project.<br>
 [![Add to VCC](https://img.shields.io/badge/-Add%20to%20VCC-%232baac1?style=for-the-badge)](https://vpm.noridev.moe/)
 
 ### UPM
